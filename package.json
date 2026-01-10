@@ -1,0 +1,40 @@
+{
+  "name": "resolve-pkglock",
+  "type": "module",
+  "version": "0.0.1",
+  "description": "A nodejs hook to resolve packages with pnpm-lock.yaml instead of symlinks",
+  "author": "Axel Meinhardt",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ameinhardt/resolve-pkglock.git"
+  },
+  "keywords": [
+    "pnpm"
+  ],
+  "main": "./dist/index.js",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "lint": "eslint --fix --ext .js,.ts,.json .",
+    "precommit": "lint-staged",
+    "build": "rollup -c",
+    "prepare": "husky || true",
+    "clean": "git clean -xdfe node_modules"
+  },
+  "devDependencies": {
+    "@antfu/eslint-config": "^6.7.3",
+    "@pnpm/lockfile-to-pnp": "^1001.0.30",
+    "@pnpm/lockfile.fs": "^1001.1.28",
+    "@rollup/plugin-commonjs": "^29.0.0",
+    "@rollup/plugin-node-resolve": "^16.0.3",
+    "@rollup/plugin-typescript": "^12.3.0",
+    "@types/node": "^25.0.3",
+    "eslint": "^9.39.2",
+    "eslint-plugin-format": "^1.2.0",
+    "husky": "^9.1.7",
+    "rollup": "^4.55.1",
+    "typescript": "^5.9.3"
+  }
+}

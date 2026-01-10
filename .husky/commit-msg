@@ -1,0 +1,11 @@
+message="$(cat $1)"
+# https://github.com/conventional-changelog/commitlint/tree/master/%40commitlint/config-conventional
+requiredPattern="^(build|chore|ci|docs|feat|fix|perf|refact|revert|style|test)([^:]+)?: .*$"
+if ! [[ $message =~ $requiredPattern ]];
+then
+  echo ""
+  echo "The commit message has to follow semver format: \"build, chore, ci, docs, feat, fix, perf, refact, revert, style, test: <your text>\""
+  echo "Your commit message was:                        \"$message\""
+  echo ""
+  exit 1
+fi
