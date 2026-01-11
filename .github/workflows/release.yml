@@ -32,3 +32,7 @@ jobs:
         run: pnpm publish --access public --provenance
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+permissions:
+  contents: write
+  id-token: write
