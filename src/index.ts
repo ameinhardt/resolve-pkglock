@@ -1,42 +1,81 @@
+import type { PackageSnapshot, ProjectSnapshot } from '@pnpm/lockfile.fs';
 import { readFileSync } from 'node:fs';
 import { createRequire, findPackageJSON, isBuiltin, registerHooks } from 'node:module';
-import { dirname, isAbsolute, join, resolve } from 'node:path';
+import { dirname, isAbsolute, join } from 'node:path';
+import { platform } from 'node:process';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import { lockfileToPackageRegistry } from '@pnpm/lockfile-to-pnp';
+import { depPathToFilename } from '@pnpm/dependency-path';
 import { readWantedLockfile } from '@pnpm/lockfile.fs';
+import { nameVerFromPkgSnapshot } from '@pnpm/lockfile.utils';
+
+type RegistryInfo = {
+  name: string
+  packageLocation: string
+  version: string
+} & Pick<ProjectSnapshot, 'dependencies' | 'devDependencies' | 'optionalDependencies'>;
 
 const PACKAGE_REGEX = /([a-z\d][-.\w]*|@[a-z\d][-.\w]+\/[a-z\d][-.\w]*)(.*)/;
 
-export async function getPackageRegistry(workspaceRoot: string) {
+function addToRegistry(registry: Map<null | string, Map<null | string, RegistryInfo>>, pkg: RegistryInfo) {
+  const { name, version } = pkg;
+  let versions = registry.get(name);
+  if (versions == null) {
+    versions = new Map<null | string, RegistryInfo>();
+    registry.set(name, versions);
+  }
+  if (!versions.has(version)) {
+    versions.set(version, pkg);
+  }
+  return pkg;
+}
+
+async function init(workspaceRoot: string) {
   const lockfile = await readWantedLockfile(workspaceRoot, { ignoreIncompatible: false });
 
   if (lockfile == null) {
     throw new Error('no lockfile found');
   }
 
-  const opts = {
-    importerNames: Object.fromEntries(Object.keys(lockfile.importers).map((depPath) => [depPath, JSON.parse(readFileSync(join(workspaceRoot, depPath, 'package.json')).toString()).name])),
-    lockfileDir: workspaceRoot,
-    registries: { default: 'https://npmjs.com' },
-    virtualStoreDir: join(workspaceRoot, './node_modules/.pnpm'),
-    virtualStoreDirMaxLength: 120
-  };
-  return lockfileToPackageRegistry(lockfile, opts) as Map<null | string, Map<null | string, { packageDependencies: Map<string, string>, packageLocation: string } | undefined>>;
-}
-
-export function init(packageRegistry: Awaited<ReturnType<typeof getPackageRegistry>>, workspaceRoot: string) {
   const defaultResolve = createRequire(workspaceRoot).resolve,
-    dirToPackage = Object.fromEntries([...packageRegistry].map(([name, versions]) => [...versions].map(([version, pkg]) => {
-      if (pkg == null) {
-        throw new Error('unknown location');
-      }
-      return [resolve(workspaceRoot, pkg.packageLocation), [name, version]];
-    })).flat());
+    virtualStoreDir = './node_modules/.pnpm',
+    virtualStoreDirMaxLength = platform === 'win32' ? 60 : 120,
+    dirToPackage: Record<string, RegistryInfo> = {},
+    packageRegistry = new Map<null | string, Map<null | string, RegistryInfo>>();
+
+  for (const [relDepPath, { dependencies, devDependencies, optionalDependencies }] of Object.entries(lockfile.importers) as [string, ProjectSnapshot][]) {
+    const packageLocation = join(workspaceRoot, relDepPath),
+      { name, version } = JSON.parse(readFileSync(join(packageLocation, 'package.json')).toString()) as { name: string, version: string },
+      pkgInfo: RegistryInfo = {
+        dependencies,
+        devDependencies,
+        name,
+        optionalDependencies,
+        packageLocation,
+        version
+      };
+    dirToPackage[packageLocation] = pkgInfo;
+    addToRegistry(packageRegistry, pkgInfo);
+  }
+  if (lockfile.packages) {
+    for (const [relDepPath, pkg] of Object.entries(lockfile.packages) as Array<[string, PackageSnapshot]>) {
+      const { dependencies, optionalDependencies } = pkg,
+        packageLocation = join(workspaceRoot, virtualStoreDir, depPathToFilename(relDepPath, virtualStoreDirMaxLength)),
+        { name, version } = nameVerFromPkgSnapshot(relDepPath, pkg),
+        pkgInfo: RegistryInfo = {
+          dependencies,
+          name,
+          optionalDependencies,
+          packageLocation,
+          version
+        };
+      dirToPackage[join(packageLocation, 'node_modules', name)] = pkgInfo;
+      addToRegistry(packageRegistry, pkgInfo);
+    }
+  }
 
   registerHooks({
     resolve(specifier, context, next) {
-      let parent: { packageDependencies: Map<string, string>, packageLocation: string } | undefined,
-        version: string | undefined,
+      let parent: RegistryInfo | undefined,
         packageLocation: string | undefined;
       if (isBuiltin(specifier) || isAbsolute(specifier)) {
         return next(specifier, context);
@@ -46,30 +85,30 @@ export function init(packageRegistry: Awaited<ReturnType<typeof getPackageRegist
         if (context.parentURL == null) {
           throw new Error('No parentURL!');
         }
-        const pkgVersion = dirToPackage[dirname(findPackageJSON(context.parentURL)!)];
-        if (pkgVersion == null) {
+        const pkg = dirToPackage[dirname(findPackageJSON(context.parentURL)!)];
+        if (pkg == null) {
           throw new Error('unknown package');
         }
-        const [pkg, version] = pkgVersion;
-        parent = packageRegistry.get(pkg)?.get(version);
+        const { name: parentName, version: parentVersion } = pkg;
+        parent = packageRegistry.get(parentName)?.get(parentVersion);
       }
       const match = specifier.match(PACKAGE_REGEX);
       if (match == null) {
         throw new Error('can\'t read specifier');
       }
-      const [, name, appendix] = match;
-      version = parent?.packageDependencies.get(name);
+      const [, name, appendix] = match,
+        version = parent?.dependencies?.[name] || parent?.devDependencies?.[name] || parent?.optionalDependencies?.[name];
       if (version == null) {
         throw new Error('can\'t find matching version');
       }
       if (version?.startsWith('link:')) {
-        version = version.substring(5);
+        if (parent == null) {
+          throw new Error('link with no parent');
+        }
+        packageLocation = join(parent.packageLocation, version.substring(5));
+      } else {
+        packageLocation = join(workspaceRoot, virtualStoreDir, depPathToFilename(`${name}@${version}`, virtualStoreDirMaxLength), 'node_modules', name);
       }
-      packageLocation = packageRegistry.get(name)?.get(version)?.packageLocation;
-      if (packageLocation == null) {
-        throw new Error('can\'t determine package location');
-      }
-      packageLocation = join(workspaceRoot, packageLocation);
       if (packageLocation[packageLocation.length - 1] === '/') {
         packageLocation = packageLocation.substring(0, packageLocation.length - 1);
       }
@@ -85,7 +124,4 @@ export function init(packageRegistry: Awaited<ReturnType<typeof getPackageRegist
   });
 }
 
-export default async function (workspaceRoot: string) {
-  const registry = await getPackageRegistry(workspaceRoot);
-  init(registry, workspaceRoot);
-}
+export default init;

@@ -28,6 +28,7 @@ By using `resolve-pkglock`, you can resolve dependencies directly from the PNPM 
 Load the module early in your entrypoint before other imports:
 
 ```js
+// eslint-disable-next-line antfu/no-import-dist, antfu/no-import-node-modules-by-path
 import resolvePkgLock from './node_modules/.pnpm/resolve-pkglock.../node_modules/resolve-pkglock/dist/index.js';
 
 // Initialize with the path to your workspace root (where pnpm-lock.yaml lives)

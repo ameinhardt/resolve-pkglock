@@ -11,12 +11,18 @@ importers:
       '@antfu/eslint-config':
         specifier: ^6.7.3
         version: 6.7.3(@vue/compiler-sfc@3.5.26)(eslint-plugin-format@1.2.0(eslint@9.39.2))(eslint@9.39.2)(typescript@5.9.3)
+      '@pnpm/dependency-path':
+        specifier: ^1001.1.8
+        version: 1001.1.8
       '@pnpm/lockfile-to-pnp':
         specifier: ^1001.0.30
         version: 1001.0.30(@pnpm/logger@1001.0.1)
       '@pnpm/lockfile.fs':
         specifier: ^1001.1.28
         version: 1001.1.28(@pnpm/logger@1001.0.1)
+      '@pnpm/lockfile.utils':
+        specifier: ^1004.0.0
+        version: 1004.0.0
       '@rollup/plugin-commonjs':
         specifier: ^29.0.0
         version: 29.0.0(rollup@4.55.1)
