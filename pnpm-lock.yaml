@@ -14,9 +14,6 @@ importers:
       '@pnpm/dependency-path':
         specifier: ^1001.1.8
         version: 1001.1.8
-      '@pnpm/lockfile-to-pnp':
-        specifier: ^1001.0.30
-        version: 1001.0.30(@pnpm/logger@1001.0.1)
       '@pnpm/lockfile.fs':
         specifier: ^1001.1.28
         version: 1001.1.28(@pnpm/logger@1001.0.1)
@@ -262,12 +259,6 @@ packages:
   '@pnpm/graceful-fs@1000.0.1':
     resolution: {integrity: sha512-JnzaAVFJIEgwTcB55eww8N3h5B6qJdZqDA2wYkSK+OcTvvMSQb9c2STMhBP6GfkWygG1fs3w8D7JRx9SPZnxJg==}
     engines: {node: '>=18.12'}
-
-  '@pnpm/lockfile-to-pnp@1001.0.30':
-    resolution: {integrity: sha512-BRxbr4VypbU9VMSAuAvLhaHDBv7meveERsvIvj/J/7UAlAumZzf4mRAyX/Rle0tRYSuY+KMl03JqVtKJUovBYA==}
-    engines: {node: '>=18.12'}
-    peerDependencies:
-      '@pnpm/logger': '>=1001.0.0 <1002.0.0'
 
   '@pnpm/lockfile.fs@1001.1.28':
     resolution: {integrity: sha512-pVKgare+s35Hgd2e42WwjbmKus5QkACbA1hgDGqXQcv6sfUo/nnMHYJ5JwpjxiaAviYXuPWs23KAlGE6fDWhCA==}
@@ -521,9 +512,6 @@ packages:
   '@types/ms@2.1.0':
     resolution: {integrity: sha512-GsCCIZDE/p3i96vtEqx+7dBUGXrc7zeSK3wwPHIaRThS+9OhWIXRqzs4d6k1SVU8g91DrNRWxWUGhp5KXQb2VA==}
 
-  '@types/node@18.19.130':
-    resolution: {integrity: sha512-GRaXQx6jGfL8sKfaIDD6OupbIHBr9jv7Jnaml9tB7l4v068PAOXqfcujMMo5PhbIs6ggR1XODELqahT2R8v0fg==}
-
   '@types/node@25.0.3':
     resolution: {integrity: sha512-W609buLVRVmeW693xKfzHeIV6nJGGz98uCPfeXI1ELMLXVeKYZ9m15fAMSaUPBHYLGFsVRcMmSCksQOrZV9BYA==}
 
@@ -619,14 +607,6 @@ packages:
 
   '@vue/shared@3.5.26':
     resolution: {integrity: sha512-7Z6/y3uFI5PRoKeorTOSXKcDj0MSasfNNltcslbFrPpcw6aXRUALq4IfJlaTRspiWIUOEZbrpM+iQGmCOiWe4A==}
-
-  '@yarnpkg/fslib@3.1.4':
-    resolution: {integrity: sha512-Yyguw5RM+xI1Bv0RFbs1ZF5HwU+9/He4YT7yeT722yAlLfkz9IzZHO6a5yStEshxiliPn9Fdj4H54a785xpK/g==}
-    engines: {node: '>=18.12.0'}
-
-  '@yarnpkg/pnp@4.0.8':
-    resolution: {integrity: sha512-D0hcRPYgYlp4W98tWYG4tCNEyenL6yxazWCxzxdnKF1r9rauDMImtAR5Sh0ERSrTf3lHKXAz8Jy7S+ztOxf7yQ==}
-    engines: {node: '>=18.12.0'}
 
   '@zkochan/js-yaml@0.0.9':
     resolution: {integrity: sha512-SsdK25Upg5wLeGK2Wm8y5bDloMMxN/qE5H6aNOiPRh07a9/fQPYVhlLZz2zRFg9il9XOlpFdrnQnPKsU7FJIpQ==}
@@ -1724,9 +1704,6 @@ packages:
   ufo@1.6.2:
     resolution: {integrity: sha512-heMioaxBcG9+Znsda5Q8sQbWnLJSl98AFDXTO80wELWEzX3hordXsTdxrIfMQoO9IY1MEnoGoPjpoKpMj+Yx0Q==}
 
-  undici-types@5.26.5:
-    resolution: {integrity: sha512-JlCMO+ehdEIKqlFxk6IfVoAUVmgz7cU7zD/h9XZ0qzeosSHmUJVOzSQvvYSYWXkFXC+IfLKSIffhv0sVZup6pA==}
-
   undici-types@7.16.0:
     resolution: {integrity: sha512-Zz+aZWSj8LE6zoxD+xrjh4VfkIG8Ya6LvYkZqtUQGJPZjYl53ypCaUwWqo7eI0x66KBGeRo+mlBEkMSeSZ38Nw==}
 
@@ -2011,17 +1988,6 @@ snapshots:
     dependencies:
       graceful-fs: 4.2.11
 
-  '@pnpm/lockfile-to-pnp@1001.0.30(@pnpm/logger@1001.0.1)':
-    dependencies:
-      '@pnpm/dependency-path': 1001.1.8
-      '@pnpm/lockfile.fs': 1001.1.28(@pnpm/logger@1001.0.1)
-      '@pnpm/lockfile.utils': 1004.0.0
-      '@pnpm/logger': 1001.0.1
-      '@pnpm/types': 1001.2.0
-      '@yarnpkg/pnp': 4.0.8
-      normalize-path: 3.0.0
-      ramda: '@pnpm/ramda@0.28.1'
-
   '@pnpm/lockfile.fs@1001.1.28(@pnpm/logger@1001.0.1)':
     dependencies:
       '@pnpm/constants': 1001.3.1
@@ -2231,10 +2197,6 @@ snapshots:
 
   '@types/ms@2.1.0': {}
 
-  '@types/node@18.19.130':
-    dependencies:
-      undici-types: 5.26.5
-
   '@types/node@25.0.3':
     dependencies:
       undici-types: 7.16.0
@@ -2375,15 +2337,6 @@ snapshots:
       '@vue/shared': 3.5.26
 
   '@vue/shared@3.5.26': {}
-
-  '@yarnpkg/fslib@3.1.4':
-    dependencies:
-      tslib: 2.8.1
-
-  '@yarnpkg/pnp@4.0.8':
-    dependencies:
-      '@types/node': 18.19.130
-      '@yarnpkg/fslib': 3.1.4
 
   '@zkochan/js-yaml@0.0.9':
     dependencies:
@@ -3622,7 +3575,8 @@ snapshots:
       picomatch: 4.0.3
       typescript: 5.9.3
 
-  tslib@2.8.1: {}
+  tslib@2.8.1:
+    optional: true
 
   type-check@0.4.0:
     dependencies:
@@ -3631,8 +3585,6 @@ snapshots:
   typescript@5.9.3: {}
 
   ufo@1.6.2: {}
-
-  undici-types@5.26.5: {}
 
   undici-types@7.16.0: {}
 
