@@ -1,10 +1,11 @@
+import type { DependencyPath } from '@pnpm/dependency-path';
 import type { PackageSnapshot, ProjectSnapshot } from '@pnpm/lockfile.fs';
 import { readFileSync } from 'node:fs';
 import { createRequire, findPackageJSON, isBuiltin, registerHooks } from 'node:module';
-import { dirname, isAbsolute, join } from 'node:path';
+import { dirname, isAbsolute, join, sep } from 'node:path';
 import { platform } from 'node:process';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import { depPathToFilename } from '@pnpm/dependency-path';
+import { depPathToFilename, parse } from '@pnpm/dependency-path';
 import { readWantedLockfile } from '@pnpm/lockfile.fs';
 import { nameVerFromPkgSnapshot } from '@pnpm/lockfile.utils';
 
@@ -14,7 +15,7 @@ type RegistryInfo = {
   version: string
 } & Pick<ProjectSnapshot, 'dependencies' | 'devDependencies' | 'optionalDependencies'>;
 
-const PACKAGE_REGEX = /([a-z\d][-.\w]*|@[a-z\d][-.\w]+\/[a-z\d][-.\w]*)(.*)/;
+const PACKAGE_REGEX = /^([a-z\d][-.\w]*|@[a-z\d][-.\w]+\/[a-z\d][-.\w]*)(\/.*)?$/;
 
 function addToRegistry(registry: Map<null | string, Map<null | string, RegistryInfo>>, pkg: RegistryInfo) {
   const { name, version } = pkg;
@@ -37,7 +38,8 @@ async function init(workspaceRoot: string) {
   }
 
   const defaultResolve = createRequire(workspaceRoot).resolve,
-    virtualStoreDir = './node_modules/.pnpm',
+    virtualStoreDir = join(workspaceRoot, './node_modules/.pnpm'),
+    virtualStoreDirUrlPath = pathToFileURL(virtualStoreDir).toString(),
     virtualStoreDirMaxLength = platform === 'win32' ? 60 : 120,
     dirToPackage: Record<string, RegistryInfo> = {},
     packageRegistry = new Map<null | string, Map<null | string, RegistryInfo>>();
@@ -59,7 +61,7 @@ async function init(workspaceRoot: string) {
   if (lockfile.packages) {
     for (const [relDepPath, pkg] of Object.entries(lockfile.packages) as Array<[string, PackageSnapshot]>) {
       const { dependencies, optionalDependencies } = pkg,
-        packageLocation = join(workspaceRoot, virtualStoreDir, depPathToFilename(relDepPath, virtualStoreDirMaxLength)),
+        packageLocation = join(virtualStoreDir, depPathToFilename(relDepPath, virtualStoreDirMaxLength)),
         { name, version } = nameVerFromPkgSnapshot(relDepPath, pkg),
         pkgInfo: RegistryInfo = {
           dependencies,
@@ -85,12 +87,24 @@ async function init(workspaceRoot: string) {
         if (context.parentURL == null) {
           throw new Error('No parentURL!');
         }
-        const pkg = dirToPackage[dirname(findPackageJSON(context.parentURL)!)];
-        if (pkg == null) {
+        let pkg: DependencyPath;
+        // bottom-up first, because there are packages that introduce multiple package.json in their hierarchy
+        if (context.parentURL.startsWith(virtualStoreDirUrlPath)) {
+          const subpath = context.parentURL.substring(0, context.parentURL.indexOf('/node_modules/', virtualStoreDirUrlPath.length + 1) + 14), // '/node_modules/'.length = 14
+            match = context.parentURL.substring(subpath.length).match(PACKAGE_REGEX);
+          if (match == null) {
+            throw new Error('can\'t parse path');
+          }
+          const [, name] = match;
+          pkg = dirToPackage[join(fileURLToPath(subpath), name)];
+        } else {
+          pkg = dirToPackage[dirname(findPackageJSON(context.parentURL)!)];
+        }
+        if (pkg == null || pkg.name == null || pkg.version == null) {
           throw new Error('unknown package');
         }
         const { name: parentName, version: parentVersion } = pkg;
-        parent = packageRegistry.get(parentName)?.get(parentVersion);
+        parent = packageRegistry.get(parentName ?? null)?.get(parentVersion ?? null);
       }
       const match = specifier.match(PACKAGE_REGEX);
       if (match == null) {
@@ -107,7 +121,7 @@ async function init(workspaceRoot: string) {
         }
         packageLocation = join(parent.packageLocation, version.substring(5));
       } else {
-        packageLocation = join(workspaceRoot, virtualStoreDir, depPathToFilename(`${name}@${version}`, virtualStoreDirMaxLength), 'node_modules', name);
+        packageLocation = join(virtualStoreDir, depPathToFilename(`${name}@${version}`, virtualStoreDirMaxLength), 'node_modules', name);
       }
       if (packageLocation[packageLocation.length - 1] === '/') {
         packageLocation = packageLocation.substring(0, packageLocation.length - 1);
