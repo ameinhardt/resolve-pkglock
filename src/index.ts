@@ -62,13 +62,13 @@ async function init(workspaceRoot: string) {
     for (const [relDepPath, pkg] of Object.entries(lockfile.packages) as Array<[string, PackageSnapshot]>) {
       const { dependencies, optionalDependencies } = pkg,
         packageLocation = join(virtualStoreDir, depPathToFilename(relDepPath, virtualStoreDirMaxLength)),
-        { name, version } = nameVerFromPkgSnapshot(relDepPath, pkg),
+        { name, nonSemverVersion, version } = nameVerFromPkgSnapshot(relDepPath, pkg),
         pkgInfo: RegistryInfo = {
           dependencies,
           name,
           optionalDependencies,
           packageLocation,
-          version
+          version: version ?? nonSemverVersion
         };
       dirToPackage[join(packageLocation, 'node_modules', name)] = pkgInfo;
       addToRegistry(packageRegistry, pkgInfo);
