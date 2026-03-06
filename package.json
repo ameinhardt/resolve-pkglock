@@ -1,7 +1,7 @@
 {
   "name": "resolve-pkglock",
   "type": "module",
-  "version": "0.0.3",
+  "version": "0.0.4",
   "description": "A nodejs hook to resolve packages with pnpm-lock.yaml instead of symlinks",
   "author": "Axel Meinhardt",
   "license": "MIT",
