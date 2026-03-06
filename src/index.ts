@@ -2,10 +2,10 @@ import type { DependencyPath } from '@pnpm/dependency-path';
 import type { PackageSnapshot, ProjectSnapshot } from '@pnpm/lockfile.fs';
 import { readFileSync } from 'node:fs';
 import { createRequire, findPackageJSON, isBuiltin, registerHooks } from 'node:module';
-import { dirname, isAbsolute, join, sep } from 'node:path';
+import { dirname, isAbsolute, join } from 'node:path';
 import { platform } from 'node:process';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import { depPathToFilename, parse } from '@pnpm/dependency-path';
+import { depPathToFilename } from '@pnpm/dependency-path';
 import { readWantedLockfile } from '@pnpm/lockfile.fs';
 import { nameVerFromPkgSnapshot } from '@pnpm/lockfile.utils';
 
@@ -75,51 +75,62 @@ async function init(workspaceRoot: string) {
     }
   }
 
+  function getParent(parentURL?: string) {
+    if (parentURL == null) {
+      throw new Error('No parentURL!');
+    }
+    let pkg: DependencyPath;
+    // bottom-up first, because there are packages that introduce multiple package.json in their hierarchy
+    if (parentURL.startsWith(virtualStoreDirUrlPath)) {
+      const subpath = parentURL.substring(0, parentURL.indexOf('/node_modules/', virtualStoreDirUrlPath.length + 1) + 14), // '/node_modules/'.length = 14
+        match = parentURL.substring(subpath.length).match(PACKAGE_REGEX);
+      if (match == null) {
+        throw new Error('can\'t parse calling module\'s path');
+      }
+      const [, name] = match;
+      pkg = dirToPackage[join(fileURLToPath(subpath), name)];
+    } else {
+      pkg = dirToPackage[dirname(findPackageJSON(parentURL)!)];
+    }
+    if (pkg == null || pkg.name == null || pkg.version == null) {
+      throw new Error('unknown package');
+    }
+    const { name: parentName, version: parentVersion } = pkg,
+      parent = packageRegistry.get(parentName ?? null)?.get(parentVersion ?? null);
+
+    if (parent == null) {
+      throw new Error('can\'t identify parent');
+    }
+    return parent;
+  }
+
   registerHooks({
     resolve(specifier, context, next) {
-      let parent: RegistryInfo | undefined,
-        packageLocation: string | undefined;
       if (isBuiltin(specifier) || isAbsolute(specifier)) {
         return next(specifier, context);
       } else if (specifier.startsWith('.')) {
         return next(join(dirname(context.parentURL ? fileURLToPath(context.parentURL) : '.'), specifier), context);
-      } else {
-        if (context.parentURL == null) {
-          throw new Error('No parentURL!');
-        }
-        let pkg: DependencyPath;
-        // bottom-up first, because there are packages that introduce multiple package.json in their hierarchy
-        if (context.parentURL.startsWith(virtualStoreDirUrlPath)) {
-          const subpath = context.parentURL.substring(0, context.parentURL.indexOf('/node_modules/', virtualStoreDirUrlPath.length + 1) + 14), // '/node_modules/'.length = 14
-            match = context.parentURL.substring(subpath.length).match(PACKAGE_REGEX);
-          if (match == null) {
-            throw new Error('can\'t parse path');
-          }
-          const [, name] = match;
-          pkg = dirToPackage[join(fileURLToPath(subpath), name)];
-        } else {
-          pkg = dirToPackage[dirname(findPackageJSON(context.parentURL)!)];
-        }
-        if (pkg == null || pkg.name == null || pkg.version == null) {
-          throw new Error('unknown package');
-        }
-        const { name: parentName, version: parentVersion } = pkg;
-        parent = packageRegistry.get(parentName ?? null)?.get(parentVersion ?? null);
       }
+
       const match = specifier.match(PACKAGE_REGEX);
       if (match == null) {
-        throw new Error('can\'t read specifier');
+        throw new Error('can\'t read package specifier');
       }
-      const [, name, appendix] = match,
-        version = parent?.dependencies?.[name] || parent?.devDependencies?.[name] || parent?.optionalDependencies?.[name];
+      const [, name, appendix] = match, // strip appendix as in somepackage/appendix or @some/package/appendix
+        parent = getParent(context.parentURL),
+        version = parent.dependencies?.[name] || parent.devDependencies?.[name] || parent.optionalDependencies?.[name];
       if (version == null) {
-        throw new Error('can\'t find matching version');
+        // some modules test for optional modules and require standard error code
+        const err: Error & Partial<{ code: string }> = new Error(`Cannot find module '${specifier}'.`);
+        err.code = 'MODULE_NOT_FOUND';
+        throw err;
       }
-      if (version?.startsWith('link:')) {
-        if (parent == null) {
-          throw new Error('link with no parent');
-        }
+      let packageLocation: string | undefined;
+
+      if (version.startsWith('link:')) {
         packageLocation = join(parent.packageLocation, version.substring(5));
+      } else if (version.startsWith(`${name}@file://`)) { // plugin-commands-deploy/src/createDeployFiles.ts:createFileUrlDepPath()
+        packageLocation = join(virtualStoreDir, depPathToFilename(version, virtualStoreDirMaxLength), 'node_modules', name);
       } else {
         packageLocation = join(virtualStoreDir, depPathToFilename(`${name}@${version}`, virtualStoreDirMaxLength), 'node_modules', name);
       }
@@ -127,12 +138,13 @@ async function init(workspaceRoot: string) {
         packageLocation = packageLocation.substring(0, packageLocation.length - 1);
       }
 
-      if (packageLocation.endsWith(`/node_modules/${name}`)) { // required, if there's appendixes
+      if (packageLocation.endsWith(`/node_modules/${name}`)) {
         const dedicatedRequire = createRequire(pathToFileURL(
           packageLocation.substring(0, packageLocation.length - 13 - name.length)
         ));
         return next(dedicatedRequire.resolve(specifier), context);
       }
+      // fallback
       return next(defaultResolve(`${packageLocation}${appendix}`), context);
     }
   });
